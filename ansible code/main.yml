@@ -1,0 +1,298 @@
+- name: case study deployment
+  hosts: localhost
+  connection: local
+  tasks:
+  - name: Create SEA resource group
+    azure_rm_resourcegroup:
+      name: rg-sea-nh
+      location: southeastasia
+  - name: Create virtual network
+    azure_rm_virtualnetwork:
+      resource_group: rg-sea-nh
+      name: vnet-sea-01
+      address_prefixes: "10.1.0.0/16"
+  - name: Create NSG for webservers
+    azure_rm_securitygroup:
+      resource_group: rg-sea-nh
+      name: nsg-webrdpgttps
+      rules:
+        - name: webRDPHTTP
+          protocol: Tcp
+          destination_port_range: 
+            - 80
+            - 3389
+          access: Allow
+          priority: 1001
+          direction: Inbound
+  - name: Add subnet1
+    azure_rm_subnet:
+      resource_group: rg-sea-nh 
+      name: snet-webservers01
+      address_prefix: "10.1.1.0/24"
+      virtual_network: vnet-sea-01
+      security_group: nsg-webrdpgttps
+  - name: Add subnet2
+    azure_rm_subnet:
+      resource_group: rg-sea-nh
+      name: snet-jumpservers01
+      address_prefix: "10.1.2.0/24"
+      virtual_network: vnet-sea-01
+  
+  - name: Create public IP address for LB
+    azure_rm_publicipaddress:
+      resource_group: rg-sea-nh
+      allocation_method: Static
+      name: pip-lb
+    register: output_ip_addresslb
+  - name: Dump public IP for VM which will be created
+    debug:
+      msg: "The public IP is {{ output_ip_addresslb.state.ip_address }}."
+
+  - name: create Load balancer
+    azure_rm_loadbalancer:
+      resource_group: rg-sea-nh
+      name: lbwebservers
+      frontend_ip_configurations:
+        - name: frontendipconf0
+          public_ip_address: pip-lb
+      backend_address_pools:
+        - name: backendaddrpool0
+      probes:
+        - name: prob0
+          port: 80
+      
+      load_balancing_rules:
+        - name: lbrbalancingrule0
+          frontend_ip_configuration: frontendipconf0
+          backend_address_pool: backendaddrpool0
+          frontend_port: 80
+          backend_port: 80
+          probe: prob0
+      inbound_nat_rules:
+        - name: inboundnatrule0
+          backend_port: 3389
+          protocol: Tcp
+          frontend_port: 8080
+          frontend_ip_configuration: frontendipconf0
+  - name: create avaliability set
+    azure_rm_availabilityset:
+      name: avail-webservers
+      location: southeastasia
+      resource_group: rg-sea-nh
+      platform_update_domain_count: 2
+      platform_fault_domain_count: 2
+      sku: Aligned
+
+  - name: Create NIC1 for webservers
+    azure_rm_networkinterface:
+      resource_group: rg-sea-nh
+      name: nic-web1
+      virtual_network: vnet-sea-01
+      subnet: snet-webservers01
+      public_ip: no
+      security_group: nsg-webrdpgttps
+      ip_configurations: 
+        - name: internal1
+          load_balancer_backend_address_pools: 
+            - name: backendaddrpool0
+              load_balancer: lbwebservers
+          private_ip_allocation_method: Dynamic
+
+  - name: Create VM1
+    azure_rm_virtualmachine:
+      resource_group: rg-sea-nh
+      name: vm-web1
+      vm_size: Standard_DS1_v2
+      availability_set: avail-webservers
+      managed_disk_type: Standard_LRS
+      boot_diagnostics:
+        enabled: no
+      admin_username: vmadmin
+      admin_password: admin@123
+      network_interfaces: nic-web1
+      os_type: Windows
+      image:
+        offer: WindowsServer
+        publisher: MicrosoftWindowsServer
+        sku: 2016-Datacenter
+        version: latest
+  
+  - name: Create NIC2 for webservers
+    azure_rm_networkinterface:
+      resource_group: rg-sea-nh
+      name: nic-web2
+      virtual_network: vnet-sea-01
+      subnet: snet-webservers01
+      public_ip: no
+      security_group: nsg-webrdpgttps
+      ip_configurations: 
+        - name: internal2
+          load_balancer_backend_address_pools: 
+            - name: backendaddrpool0
+              load_balancer: lbwebservers
+          private_ip_allocation_method: Dynamic
+  
+  - name: Create VM2
+    azure_rm_virtualmachine:
+      resource_group: rg-sea-nh
+      name: vm-web2
+      vm_size: Standard_DS1_v2
+      availability_set: avail-webservers
+      managed_disk_type: Standard_LRS
+      boot_diagnostics:
+        enabled: no
+      admin_username: vmadmin
+      admin_password: admin@123
+      network_interfaces: nic-web2
+      os_type: Windows
+      image:
+        offer: WindowsServer
+        publisher: MicrosoftWindowsServer
+        sku: 2016-Datacenter
+        version: latest
+
+  - name: Create public IP address for jumpvm
+    azure_rm_publicipaddress:
+      resource_group: rg-sea-nh
+      allocation_method: Static
+      name: jumpPublicIP
+    register: output_ip_address
+  - name: Dump public IP for VM which will be created
+    debug:
+      msg: "The public IP is {{ output_ip_address.state.ip_address }}."
+  - name: Create Network Security Group that allows RDP HTTP
+    azure_rm_securitygroup:
+      resource_group: rg-sea-nh
+      name: nsg-rdpgttps
+      rules:
+        - name: RDPHTTP
+          protocol: Tcp
+          destination_port_range: 
+            - 3389
+          access: Allow
+          priority: 1001
+          direction: Inbound
+  - name: Create virtual network interface card
+    azure_rm_networkinterface:
+      resource_group: rg-sea-nh
+      name: nic-jump1
+      virtual_network: vnet-sea-01
+      subnet: snet-jumpservers01
+      public_ip_name: jumpPublicIP
+      security_group: nsg-rdpgttps
+  - name: Create VM jump
+    azure_rm_virtualmachine:
+      resource_group: rg-sea-nh
+      name: vm-jump01
+      vm_size: Standard_DS1_v2
+      managed_disk_type: Standard_LRS
+      boot_diagnostics:
+        enabled: no
+      admin_username: vmadmin
+      admin_password: admin@123
+      network_interfaces: nic-jump1
+      os_type: Windows
+      image:
+        offer: WindowsServer
+        publisher: MicrosoftWindowsServer
+        sku: 2016-Datacenter
+        version: latest
+
+  - name: Create EUS resource group
+    azure_rm_resourcegroup:
+      name: rg-EUS-nh
+      location: eastus
+  - name: Create virtual network
+    azure_rm_virtualnetwork:
+      resource_group: rg-eus-nh
+      name: vnet-eus-01
+      address_prefixes: "10.2.0.0/16"
+  - name: Create NSG for webservers
+    azure_rm_securitygroup:
+      resource_group: rg-eus-nh
+      name: nsg-webrdp
+      rules:
+        - name: allow_RDP
+          protocol: Tcp
+          destination_port_range: 
+            - 3389
+          access: Allow
+          priority: 1001
+          direction: Inbound
+  - name: Add subnet1
+    azure_rm_subnet:
+      resource_group: rg-eus-nh 
+      name: snet-servers01
+      address_prefix: "10.2.1.0/24"
+      virtual_network: vnet-eus-01
+      security_group: nsg-webrdp
+
+  - name: Create public IP address for jumpvm
+    azure_rm_publicipaddress:
+      resource_group: rg-eus-nh
+      allocation_method: Static
+      name: server11PublicIP
+    register: output_ip_address
+  - name: Dump public IP for VM which will be created
+    debug:
+      msg: "The public IP is {{ output_ip_address.state.ip_address }}."
+
+  - name: Create NICserver11 for webservers
+    azure_rm_networkinterface:
+      resource_group: rg-eus-nh
+      name: nic-server11
+      virtual_network: vnet-eus-01
+      subnet: snet-servers01
+      public_ip_name: server11PublicIP
+      security_group: nsg-webrdp
+
+  - name: Create VM1
+    azure_rm_virtualmachine:
+      resource_group: rg-eus-nh
+      name: vm-server11
+      vm_size: Standard_DS1_v2
+      managed_disk_type: Standard_LRS
+      boot_diagnostics:
+        enabled: no
+      admin_username: vmadmin
+      admin_password: admin@123
+      network_interfaces: nic-server11
+      os_type: Windows
+      image:
+        offer: WindowsServer
+        publisher: MicrosoftWindowsServer
+        sku: 2016-Datacenter
+        version: latest
+
+  - name: Create virtual network peering SEA-EUS
+    azure_rm_virtualnetworkpeering:
+      resource_group: rg-sea-nh
+      virtual_network: vnet-sea-01
+      name: per-SEA-EUS
+      remote_virtual_network:
+        resource_group: rg-EUS-nh
+        name: vnet-eus-01
+
+  - name: Create virtual network peering EUS-SEA
+    azure_rm_virtualnetworkpeering:
+      resource_group: rg-eus-nh
+      virtual_network: vnet-eus-01
+      name: per-EUS-SEA
+      remote_virtual_network:
+        resource_group: rg-sea-nh
+        name: vnet-sea-01
+
+  - name: create an Storage account with ZRS
+    azure_rm_storageaccount:
+      resource_group: rg-eus-nh
+      name: stg-nh0011
+      type: Standard_ZRS
+
+  
+
+
+  - name: create an Storage account with GRS
+    azure_rm_storageaccount:
+      resource_group: rg-sea-nh
+      name: stg-nh0012
+      type: Standard_GRS
