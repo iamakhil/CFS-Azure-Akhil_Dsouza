@@ -6,7 +6,7 @@ This repository contains detailed implementation of a case study in azure using 
 
 ### Skills: 
 
-Cloud,Re-Engineering,Virtuvalization,Ansible,Terraform.
+Azure cloud,Re-Engineering,Virtuvalization,Ansible,Terraform.
 
 - 
 - [List of activities](https://github.com/iamakhil/CFS-Azure-COE-Batch-1A-Akhil_Dsouza/blob/main/List%20of%20activities.docx)
