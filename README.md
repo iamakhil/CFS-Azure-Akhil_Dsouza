@@ -8,7 +8,6 @@ This repository contains detailed implementation of a case study in azure using 
 
 Azure cloud,Re-Engineering,Virtuvalization,Ansible,Terraform.
 
-- 
 - [List of activities](https://github.com/iamakhil/CFS-Azure-COE-Batch-1A-Akhil_Dsouza/blob/main/List%20of%20activities.docx)
 - [Terraform code](https://github.com/iamakhil/CFS-Azure-COE-Batch-1A-Akhil_Dsouza/tree/main/terraform%20code)
 - [powershell code](https://github.com/iamakhil/CFS-Azure-COE-Batch-1A-Akhil_Dsouza/tree/main/powershell%20code)
