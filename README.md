@@ -6,7 +6,7 @@ This repository contains detailed implementation of a case study in azure using 
 
 ### Skills: 
 
-Azure cloud,Re-Engineering,Virtuvalization,Ansible,Terraform.
+Azure cloud,Re-Engineering,,Ansible,Terraform.
 
 
 - [Design Implementaion Approach](https://github.com/iamakhil/CFS-Azure-Akhil_Dsouza/blob/main/Implementation%20Design%20Approach.docx)
